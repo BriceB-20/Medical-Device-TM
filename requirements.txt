@@ -1,5 +1,5 @@
-streamlit
+streamlit==1.10.0
 pandas
-top2vec
-wordcloud
+top2vec==1.0.27
+wordcloud==1.8.1
 matplotlib
