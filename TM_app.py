@@ -1,7 +1,9 @@
+import gzip
 import streamlit as st
 import pandas as pd
 import datetime
 import json
+# import os
 # from sympy import reduced
 from top2vec import Top2Vec
 from wordcloud import WordCloud
@@ -12,27 +14,39 @@ from matplotlib import pyplot as plt
 # Load model & data
 @st.experimental_singleton
 def load_model():
-    path = 'C:/Users/Brice/OneDrive - University of Maryland/Medical Devices/Data/Topic Models/Top2Vec/'
-    name = '2022-06-27_21_47_40_model[reduced,doc2vec,min_count_50,ngram_True,deep_learn].json'
-    return Top2Vec.load(path + f'{name}')
+    path = 'C:/Code/Medical-Device-TM/'
+    name = '2022-07-14_18_32_55_model[non-lemma,universal-sentence-encoder-large,deep_learn,min_count_10,ngram_True].json.gz'
+
+    try:
+        with gzip.open(name, 'rb') as f:
+            return Top2Vec.load(f)
+    except FileNotFoundError:
+        with gzip.open(path + f'{name}', 'rb') as f:
+            return Top2Vec.load(f)
+        # return Top2Vec.load(path + f'{name}')
 
 @st.cache
 def load_data():
-    '''
-    json_file = 'C:/Users/Brice/OneDrive - University of Maryland/Medical Devices/Data/biomed_pubmed_data2.json'
-    date_cutoff = datetime.date(2001, 1, 1)
-    with open(json_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    df = pd.DataFrame.from_dict(data)
-    df = df.drop_duplicates(subset='Abstract', keep=False) # Extract only items with abstracts (removes None duplicate)
-    df = df.reset_index(drop=True)
-    for i, item in enumerate(df["Date"]):  # Convert datetime strings back to objects
-        df.at[i, 'Date'] = eval(item)
-    df = df[df.loc[:, 'Date'] <= date_cutoff]  # remove extraneous dates (from API issues)
-    df = df.reset_index(drop=True)
-    '''
-    df = pd.read_csv('C:/Users/Brice/OneDrive - University of Maryland/Medical Devices/Data/Topic Models/tm_df.csv')
-    return df
+    def clean_data(data):
+        json_file = json.load(data)
+        date_cutoff = datetime.date(1989, 1, 1)
+        df = pd.DataFrame.from_dict(json_file)
+        df = df.drop_duplicates(subset='Abstract', keep=False) # Extract only items with abstracts (removes None duplicate)
+        df = df.reset_index(drop=True)
+        for i, item in enumerate(df["Date"]):  # Convert datetime strings back to objects
+            df.at[i, 'Date'] = eval(item)
+        df = df[df.loc[:, 'Date'] < date_cutoff]  # remove extraneous dates (from API issues)
+        df = df.reset_index(drop=True)
+        return df
+
+    path = 'C:/Code/Medical-Device-TM/'
+    name = 'biomed_pubmed_data.json.gz'
+    try:
+        with gzip.open(name, 'rb') as f:
+            return clean_data(f)
+    except FileNotFoundError:
+        with gzip.open(path + f'{name}', 'rb') as f:
+            return clean_data(f)
 
 def append_dict(data):
     # Create df with author info
@@ -83,7 +97,7 @@ def create_frequency_dataframe(dataframe, default, specific, year_start=1975, ye
 
     # Get doc_ids for each requested topic
     for topic in topic_columns:
-        _, _, document_ids = model.search_documents_by_topic(topic_num=topic, reduced=True, num_docs=topic_sizes[topic]) # Works because topic number correspondes to its order in the topic size list
+        _, document_ids = model.search_documents_by_topic(topic_num=topic, reduced=True, num_docs=topic_sizes[topic]) # Works because topic number correspondes to its order in the topic size list
         for id in document_ids:
             if dataframe.at[id, 'Date'].year >= datetime.date(year_start,1,1).year and dataframe.at[id, 'Date'].year < datetime.date(year_stop,1,1).year:
                 date_df.at[dataframe.at[id, 'Date'].year, topic] += 1
@@ -136,7 +150,8 @@ if mode == 'Explore Topics': # Variables associated with this section have the s
                                 value=10)  # Default value is 10
         submitted_et = st.form_submit_button("Submit")
     if submitted_et:
-        topic_words, word_scores, topic_scores, topic_nums = model.query_topics(txt_et, num_topics=num_et, reduced=True)
+        txt_et_list = txt_et.split()
+        topic_words, word_scores, topic_scores, topic_nums = model.search_topics(txt_et_list, num_topics=num_et, reduced=True)
         for i, topic in enumerate(topic_nums):
             st.subheader('Topic Number: ' + str(topic))
             st.write('Search Cosine Similary: ' + str(topic_scores[i]))
@@ -160,9 +175,10 @@ if mode == 'Explore Documents':
                                 value=10)  # Default value is 10
         submitted_ed = st.form_submit_button("Submit")
     if submitted_ed:
-        _, doc_scores, doc_ids = model.query_documents(txt_ed, num_docs=num_ed)
+        txt_ed_list = txt_ed.split()
+        doc_scores, doc_ids = model.search_documents_by_keywords(txt_ed_list, num_docs=num_ed)
         st.container()
-        for doc in doc_ids:
+        for i, doc in enumerate(doc_ids):
             with st.container():
                 st.subheader(df.iat[doc, 2])
                 with st.expander('See more'):
@@ -170,6 +186,7 @@ if mode == 'Explore Documents':
                     st.dataframe(append_dict(df.iat[doc, 5]))
                     st.write('Date:', f'{df.iat[doc, 6]}')
                     st.write('PMUID:', f'{df.iat[doc, 0]}')
+                    st.write('Cosine Similarity:', str(doc_scores[i]))
                     st.write('Abstract:', f'{df.iat[doc, 3]}')
 
 if mode == 'Topic Prevalence':
