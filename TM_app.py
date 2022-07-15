@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 @st.experimental_singleton
 def load_model():
     path = 'C:/Code/Medical-Device-TM/'
-    name = '2022-07-14_18_32_55_model[non-lemma,universal-sentence-encoder-large,deep_learn,min_count_10,ngram_True].json.gz'
+    name = '2022-07-14_21_30_13_model[non-lemma,universal-sentence-encoder-large,deep_learn,min_count_10,ngram_True].json.gz'
 
     try:
         with gzip.open(name, 'rb') as f:
