@@ -14,16 +14,16 @@ from matplotlib import pyplot as plt
 # Load model & data
 @st.experimental_singleton
 def load_model():
-    path = 'C:/Code/Medical-Device-TM/'
+    # path = 'C:/Code/Medical-Device-TM/'
     name = '2022-07-14_21_30_13_model[non-lemma,universal-sentence-encoder-large,deep_learn,min_count_10,ngram_True].json.gz'
 
-    try:
-        with gzip.open(name, 'rb') as f:
-            return Top2Vec.load(f)
-    except FileNotFoundError:
-        with gzip.open(path + f'{name}', 'rb') as f:
-            return Top2Vec.load(f)
-        # return Top2Vec.load(path + f'{name}')
+    # try:
+    with gzip.open(name, 'rb') as f:
+        return Top2Vec.load(f)
+    # except FileNotFoundError:
+    #     with gzip.open(path + f'{name}', 'rb') as f:
+    #         return Top2Vec.load(f)
+    #     # return Top2Vec.load(path + f'{name}')
 
 @st.cache
 def load_data():
@@ -39,14 +39,14 @@ def load_data():
         df = df.reset_index(drop=True)
         return df
 
-    path = 'C:/Code/Medical-Device-TM/'
+    # path = 'C:/Code/Medical-Device-TM/'
     name = 'biomed_pubmed_data.json.gz'
-    try:
-        with gzip.open(name, 'rb') as f:
-            return clean_data(f)
-    except FileNotFoundError:
-        with gzip.open(path + f'{name}', 'rb') as f:
-            return clean_data(f)
+    # try:
+    with gzip.open(name, 'rb') as f:
+        return clean_data(f)
+    # except FileNotFoundError:
+    #     with gzip.open(path + f'{name}', 'rb') as f:
+    #         return clean_data(f)
 
 def append_dict(data):
     # Create df with author info
@@ -70,7 +70,7 @@ def append_dict(data):
 
     return author_df
 
-def create_frequency_dataframe(dataframe, default, specific, year_start=1975, year_stop=2001):
+def create_frequency_dataframe(dataframe, default, specific, year_start=1976, year_stop=2000):
     # Create list of topic nums
     topic_sizes, topic_nums = model.get_topic_sizes(reduced=True)
     topic_columns = []
@@ -83,10 +83,10 @@ def create_frequency_dataframe(dataframe, default, specific, year_start=1975, ye
     elif default == 'Bottom 10':
         topic_columns = topic_nums[-10:]
 
-    topic_columns= set(list(topic_columns) + [int(i) for i in specific.split() if len(i) > 0]) # Break input text into list of ints
+    topic_columns= set(list(topic_columns) + [int(i) for i in specific.split() if len(i) > 0]) # Break input text into list of ints then merge lists
     
     # Format df for number of articles in each topic in a given year
-    date_df = pd.DataFrame(index=range(year_start, year_stop), columns=topic_columns)
+    date_df = pd.DataFrame(index=range(year_start, year_stop + 1), columns=topic_columns)
     for col in date_df.columns:
         date_df[col].values[:] = 0  # Covert values from null to 0
 
@@ -99,7 +99,7 @@ def create_frequency_dataframe(dataframe, default, specific, year_start=1975, ye
     for topic in topic_columns:
         _, document_ids = model.search_documents_by_topic(topic_num=topic, reduced=True, num_docs=topic_sizes[topic]) # Works because topic number correspondes to its order in the topic size list
         for id in document_ids:
-            if dataframe.at[id, 'Date'].year >= datetime.date(year_start,1,1).year and dataframe.at[id, 'Date'].year < datetime.date(year_stop,1,1).year:
+            if dataframe.at[id, 'Date'].year >= datetime.date(year_start,1,1).year and dataframe.at[id, 'Date'].year < datetime.date(year_stop + 1,1,1).year:
                 date_df.at[dataframe.at[id, 'Date'].year, topic] += 1
 
     return date_df, topic_columns
@@ -142,7 +142,7 @@ mode = st.sidebar.selectbox('Select Mode',['Explore Topics', 'Explore Documents'
 
 if mode == 'Explore Topics': # Variables associated with this section have the suffic 'et'
     with st.sidebar.form('Explore Topics', clear_on_submit=False):
-        st.write('Input a search term(s) separated by a space and recieve the topics that are most similar.')
+        st.write('Input a search term(s) separated by a space and recieve the topics that are most semantically similar.')
         txt_et = st.text_area('Keyword(s)')
         num_et = st.number_input('Number of topics to return', 
                                 min_value=1, 
@@ -167,7 +167,7 @@ if mode == 'Explore Topics': # Variables associated with this section have the s
 
 if mode == 'Explore Documents':
     with st.sidebar.form('Explore Documents', clear_on_submit=False):
-        st.write('Input a search term(s) separated by a space and recieve the documents that are most similar.')
+        st.write('Input a search term(s) separated by a space and recieve the documents that are most semantical similar.')
         txt_ed = st.text_area('Keyword(s) or Phrase(s)')
         num_ed = st.number_input('Number of documents to return', 
                                 min_value=1, 
@@ -197,9 +197,17 @@ if mode == 'Topic Prevalence':
                                                         Topic numbers are assigned in order of decreasing prevalence.
                                                         In other words, Topic 0 is the most prevalent. 
                                                         Topic 1 is the second most prevalent, etc.''')
+        year_start_tp, year_stop_tp = st.slider('Year Range', 
+                                        min_value=df['Date'].min().year, 
+                                        max_value=df['Date'].max().year, 
+                                        value=[1976, 1988])
         submitted_ed = st.form_submit_button("Submit")
     if submitted_ed:
-        frequency_df, topics = create_frequency_dataframe(df, default, specific)
+        frequency_df, topics = create_frequency_dataframe(dataframe = df, 
+                                                        default = default, 
+                                                        specific = specific, 
+                                                        year_start = year_start_tp, 
+                                                        year_stop = year_stop_tp)
         frequency_plot = create_plot(frequency_df, 'Number of Articles in Topic', 'Topic Frequency by Year')
         prevalence_df = create_prevalence_dataframe(frequency_df)
         prevalence_plot = create_plot(prevalence_df, ylabel='Proportion of Total Articles', title='Proportion of Articles in Topics by Year')
