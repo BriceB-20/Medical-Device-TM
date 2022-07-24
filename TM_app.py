@@ -183,9 +183,9 @@ if mode == 'Topic Prevalence':
                                                         In other words, Topic 0 is the most prevalent. 
                                                         Topic 1 is the second most prevalent, etc.''')
         year_start_tp, year_stop_tp = st.slider('Year Range', 
-                                        min_value=df['Date'].min().year, 
+                                        min_value=1975, 
                                         max_value=df['Date'].max().year, 
-                                        value=[1976, 1988])
+                                        value=[1975, 1988])
         submitted_ed = st.form_submit_button("Submit")
     if submitted_ed:
         frequency_df, topics = create_frequency_dataframe(dataframe = df, 
