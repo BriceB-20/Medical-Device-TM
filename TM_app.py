@@ -3,38 +3,32 @@ import streamlit as st
 import pandas as pd
 import datetime
 import json
-# import os
-# from sympy import reduced
 from top2vec import Top2Vec
 from wordcloud import WordCloud
 from matplotlib import pyplot as plt
 
-# C:\Code\Medical-Device-Project\TM_app.py
-
 # Load model & data
 @st.experimental_singleton
 def load_model():
-    # path = 'C:/Code/Medical-Device-TM/'
     name = '2022-07-14_21_30_13_model[non-lemma,universal-sentence-encoder-large,deep_learn,min_count_10,ngram_True].json.gz'
     
     with gzip.open(name, 'rb') as f:
         return Top2Vec.load(f)
 
+def clean_data(data):
+    json_file = json.load(data)
+    date_cutoff = datetime.date(1989, 1, 1)
+    df = pd.DataFrame.from_dict(json_file)
+    df = df.drop_duplicates(subset='Abstract', keep=False) # Extract only items with abstracts (removes None duplicate)
+    df = df.reset_index(drop=True)
+    for i, item in enumerate(df["Date"]):  # Convert datetime strings back to objects
+        df.at[i, 'Date'] = eval(item)
+    df = df[df.loc[:, 'Date'] < date_cutoff]  # remove extraneous dates (from API issues)
+    df = df.reset_index(drop=True)
+    return df
 
 @st.cache
 def load_data():
-    def clean_data(data):
-        json_file = json.load(data)
-        date_cutoff = datetime.date(1989, 1, 1)
-        df = pd.DataFrame.from_dict(json_file)
-        df = df.drop_duplicates(subset='Abstract', keep=False) # Extract only items with abstracts (removes None duplicate)
-        df = df.reset_index(drop=True)
-        for i, item in enumerate(df["Date"]):  # Convert datetime strings back to objects
-            df.at[i, 'Date'] = eval(item)
-        df = df[df.loc[:, 'Date'] < date_cutoff]  # remove extraneous dates (from API issues)
-        df = df.reset_index(drop=True)
-        return df
-
     name = 'biomed_pubmed_data.json.gz'
     with gzip.open(name, 'rb') as f:
         return clean_data(f)
